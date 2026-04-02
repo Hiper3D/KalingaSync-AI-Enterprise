@@ -6,7 +6,7 @@
 ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
 
-**KalingaSync AI Enterprise** is a highly scalable, fully serverless internal operations and workforce management platform. Engineered natively on the AWS [Amazon Web Services - a comprehensive cloud computing platform provided by Amazon] ecosystem, this architecture demonstrates enterprise-grade backend design, emphasizing strict cryptographic access control, decoupled microservices, and real-time AI [Artificial Intelligence - the simulation of human intelligence processes by machines] integration.
+**KalingaSync AI Enterprise** is a highly scalable, fully serverless internal operations and workforce management platform. Engineered natively on the AWS [Amazon Web Services - a comprehensive cloud computing platform provided by Amazon] ecosystem, this architecture demonstrates enterprise-grade backend design, emphasizing strict cryptographic access control, decoupled microservices, and real-time AI integration.
 
 🔗 **[[Live Production Gateway](https://main.d1kt3atqogdd7q.amplifyapp.com/)]**
 
