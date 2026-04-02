@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KalingaSync AI | Employee Dashboard</title>
+    <script src="kalinga-config.js"></script>
+    <script src="api-client.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117; --card-bg: #161b22; --text-main: #c9d1d9;
+            --text-muted: #8b949e; --accent: #58a6ff; --accent-hover: #1f6feb;
+            --border: #30363d; --error: #f85149; --success: #3fb950; --private-alert: #d29922;
+        }
+        
+        /* Hides the I-beam cursor globally for a native app feel while preserving text copying */
+        body { 
+            background-color: var(--bg-color); color: var(--text-main); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+            margin: 0; display: flex; height: 100vh; overflow: hidden; 
+            cursor: default;
+        }
+        
+        /* Re-enables the standard text cursor strictly for input zones */
+        input, textarea, select {
+            cursor: text;
+        }
+        
+        .sidebar { width: 250px; background-color: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; flex-shrink: 0; }
+        .sidebar-header { font-size: 20px; font-weight: 700; margin-bottom: 40px; color: var(--accent); }
+        .nav-item { padding: 12px 15px; border-radius: 6px; cursor: pointer; margin-bottom: 8px; transition: background 0.2s; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+        .nav-item:hover { background: rgba(88, 166, 255, 0.1); color: var(--accent); }
+        .nav-item.active { background: var(--accent); color: white; }
+        
+        .nav-badge { background: var(--error); color: white; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 10px; display: none; }
+
+        .main-content { flex: 1; padding: 40px; overflow-y: auto; background: var(--bg-color); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-shrink: 0; }
+        .welcome-text { font-size: 24px; font-weight: 600; }
+        
+        .broadcast-banner { border-radius: 8px; padding: 20px; margin-bottom: 25px; display: none; transition: 0.3s; }
+        .broadcast-global { background: rgba(88, 166, 255, 0.1); border: 1px solid var(--accent); }
+        .broadcast-private { background: rgba(210, 153, 34, 0.1); border: 1px solid var(--private-alert); }
+        .broadcast-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .broadcast-content { font-size: 15px; line-height: 1.5; color: var(--text-main); white-space: pre-wrap; }
+        
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 25px; }
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 25px; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+        .card-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* 🚀 NEW: AI Fullscreen Overlay Styles */
+        .ai-card-expanded {
+            position: fixed !important;
+            top: 30px !important;
+            left: 280px !important; /* Leaves sidebar visible */
+            right: 30px !important;
+            bottom: 30px !important;
+            z-index: 2000 !important;
+            /* 🛡️ UI/UX UPGRADE: Cinematic backdrop dimming when expanded */
+            box-shadow: 0 0 0 9999px rgba(13, 17, 23, 0.85), 0 25px 50px rgba(0,0,0,0.9) !important;
+            border: 1px solid var(--accent) !important;
+            border-radius: 12px !important;
+        }
+        .ai-card-expanded #ai-chat-window {
+            max-height: none !important; /* Removes the 350px limit */
+            flex: 1 !important;
+            font-size: 14px !important; /* Optimal reading size */
+        }
+        
+        .window-btn {
+            background: transparent; border: none; color: var(--text-muted); 
+            font-size: 16px; cursor: pointer; transition: 0.2s; padding: 4px 8px; border-radius: 4px;
+        }
+        .window-btn:hover { background: rgba(88, 166, 255, 0.2); color: var(--accent); }
+
+        .photo-container { position: relative; width: 80px; height: 80px; cursor: pointer; border-radius: 50%; border: 2px solid var(--border); overflow: hidden; background: var(--bg-color); }
+        .photo-container:hover .photo-overlay { display: flex; }
+        .profile-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .photo-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); color: white; display: none; flex-direction: column; justify-content: center; align-items: center; font-size: 11px; font-weight: 600; text-align: center; }
+        .profile-row { display: flex; margin-bottom: 12px; font-size: 14px; }
+        .profile-label { width: 80px; color: var(--text-muted); font-weight: 500; }
+        .profile-value { flex: 1; font-weight: 600; color: var(--text-main); word-break: break-all; }
+        
+        .task-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: rgba(48, 54, 61, 0.3); border-radius: 6px; margin-bottom: 10px; font-size: 14px; border: 1px solid transparent; transition: 0.2s; cursor: pointer; }
+        .task-item:hover { border-color: var(--border); background: rgba(48, 54, 61, 0.6); }
+        .task-status { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: 600; background: rgba(210, 153, 34, 0.1); color: #d29922; border: 1px solid #d29922; }
+
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: 0.2s; }
+        .btn-outline:hover:not(:disabled) { background: var(--border); }
+        .btn-primary { background: var(--accent); border: none; color: white; padding: 10px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+        .directory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .dir-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; text-align: center; transition: transform 0.2s; }
+        .dir-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+        .dir-photo { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 2px solid var(--border); display: inline-block; background: var(--bg-color); }
+        .dir-name { font-size: 16px; font-weight: 600; color: var(--text-main); margin-bottom: 5px; }
+        .dir-handle { font-size: 13px; color: var(--accent); font-weight: 500; margin-bottom: 10px; }
+        .dir-role { font-size: 12px; color: var(--text-main); margin-bottom: 5px; }
+        .dir-dept { font-size: 12px; color: var(--text-muted); margin-bottom: 15px; }
+
+        /* Master-Detail Inbox UI Styles */
+        .thread-list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(48, 54, 61, 0.3); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .thread-list-item:hover { border-color: var(--accent); background: rgba(48, 54, 61, 0.6); }
+        .thread-list-info { flex: 1; overflow: hidden; }
+        .thread-list-name { font-weight: 600; color: var(--text-main); font-size: 15px; margin-bottom: 4px; }
+        .thread-list-preview { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .thread-list-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+        
+        .back-btn { background: transparent; border: none; color: var(--accent); cursor: pointer; font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 15px; display: inline-flex; align-items: center; align-self: flex-start;}
+        .back-btn:hover { text-decoration: underline; }
+
+        .thread-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+        .thread-header { border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 15px; font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .thread-messages { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; margin-bottom: 15px; padding-right: 10px; flex: 1; }
+        .chat-bubble { padding: 10px 14px; border-radius: 8px; font-size: 14px; max-width: 80%; line-height: 1.4; white-space: pre-wrap; }
+        .chat-me { align-self: flex-end; background: var(--accent); color: white; border-bottom-right-radius: 2px; }
+        .chat-them { align-self: flex-start; background: rgba(48, 54, 61, 0.5); color: var(--text-main); border-bottom-left-radius: 2px; }
+        .chat-time { font-size: 10px; opacity: 0.7; margin-bottom: 4px; }
+        .reply-box { display: flex; gap: 10px; flex-shrink: 0; }
+        .reply-input { flex: 1; padding: 10px 14px; background: var(--bg-color); border: 1px solid var(--border); border-radius: 6px; color: white; font-family: inherit; font-size: 14px; }
+        .reply-input:focus { outline: none; border-color: var(--accent); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: var(--card-bg); padding: 30px; border-radius: 12px; border: 1px solid var(--border); width: 100%; max-width: 450px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+        .modal-box h3 { margin-top: 0; color: var(--text-main); font-size: 18px; margin-bottom: 8px; }
+        .modal-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 25px; line-height: 1.4; }
+        .modal-box label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .modal-box input, .modal-box select, .modal-box textarea { width: 100%; padding: 12px; margin-bottom: 20px; background: var(--bg-color); border: 1px solid var(--border); border-radius: 6px; color: white; box-sizing: border-box; font-size: 14px; font-family: inherit;}
+        .phone-input-group { display: flex; margin-bottom: 20px; }
+        .phone-input-group select { width: 95px; border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; background-color: rgba(48, 54, 61, 0.5); padding-left: 8px; padding-right: 4px; cursor: pointer; }
+        .phone-input-group input { flex: 1; border-top-left-radius: 0; border-bottom-left-radius: 0; margin-bottom: 0; }
+
+        /* 🚀 Premium Stacking Toast Notifications */
+        #toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--card-bg); color: var(--text-main);
+            padding: 15px 20px; border-radius: 6px; font-size: 14px; font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5); border-left: 4px solid var(--accent);
+            pointer-events: auto; min-width: 250px; max-width: 350px; word-wrap: break-word;
+            animation: slideInRight 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--error); }
+        .toast.hiding { animation: fadeOutRight 0.3s forwards; }
+
+        @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">KalingaSync AI</div>
+        <div class="nav-item active" onclick="switchTab('workspace', this)"><span>My Workspace</span></div>
+        <div class="nav-item" onclick="switchTab('inbox', this)">
+            <span>📥 Secure Inbox</span>
+            <span id="inboxBadge" class="nav-badge">NEW</span>
+        </div>
+        
+        <!-- 🚀 NEW: Dedicated Company Pulse Tab -->
+        <div class="nav-item" onclick="switchTab('polls', this)">
+            <span>📊 Company Pulse</span>
+        </div>
+
+        <div class="nav-item" onclick="switchTab('directory', this)"><span>Company Directory</span></div>
+        <div class="nav-item" onclick="alert('Settings UI coming soon.')"><span>Settings</span></div>
+        
+        <div id="adminPortalBtn" class="nav-item" style="display: none; color: #d29922; border: 1px solid rgba(210, 153, 34, 0.3);" onclick="window.location.href='admin.html'"><span>⚙️ Admin Portal</span></div>
+
+        <div style="margin-top: auto;" class="nav-item" onclick="logout()"><span>Sign Out</span></div>
+    </div>
+
+    <div class="main-content">
+        <div id="workspace-section">
+            <div class="header"><div class="welcome-text" id="welcomeMessage">Welcome back.</div></div>
+
+            <div class="broadcast-banner broadcast-global" id="globalNoteContainer">
+                <div class="broadcast-title" style="color: var(--accent);">🔔 Enterprise Broadcast</div>
+                <div class="broadcast-content" id="globalNoteContent">Fetching announcements...</div>
+                <div id="globalNoteAction" style="margin-top: 15px; border-top: 1px solid rgba(88, 166, 255, 0.2); padding-top: 12px; display: flex; gap: 10px; align-items: center;"></div>
+            </div>
+            
+            <div class="broadcast-banner broadcast-private" id="privateNoteContainer">
+                <div class="broadcast-title" style="color: var(--private-alert);">🎯 Secure Private Alert</div>
+                <div class="broadcast-content" id="privateNoteContent">Fetching alerts...</div>
+                <div id="privateNoteAction" style="margin-top: 15px; border-top: 1px solid rgba(210, 153, 34, 0.2); padding-top: 12px; display: flex; gap: 10px; align-items: center;"></div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-title">Identity Profile <button class="btn-outline" onclick="openUpdateModal()">Request Update</button></div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 25px;">
+                        <div class="photo-container" style="margin-bottom: 8px;" onclick="document.getElementById('photoUploadInput').click()">
+                            <img id="empPhoto" src="https://ui-avatars.com/api/?name=User&background=161b22&color=8b949e" class="profile-photo" alt="Profile">
+                            <div class="photo-overlay">📷<br>Change</div>
+                        </div>
+                        <input type="file" id="photoUploadInput" accept="image/jpeg, image/png" style="display: none;" onchange="handlePhotoUpload(event)">
+                        <span id="removePhotoBtn" style="font-size: 12px; color: var(--error); cursor: pointer; font-weight: 500; display: none; transition: 0.2s;" onclick="removePhoto()">🗑️ Remove Photo</span>
+                    </div>
+                    <div class="profile-row"><div class="profile-label">Name</div><div class="profile-value" id="empName">Loading...</div></div>
+                    <div class="profile-row"><div class="profile-label">Handle</div><div class="profile-value" id="empHandle" style="color: var(--accent);">Loading...</div></div>
+                    <div class="profile-row"><div class="profile-label">Email</div><div class="profile-value" id="empEmail">Loading...</div></div>
+                    <div class="profile-row"><div class="profile-label">Phone</div><div class="profile-value" id="empPhone">Loading...</div></div>
+                    <div class="profile-row"><div class="profile-label">Role</div><div class="profile-value" id="empRole">Loading...</div></div>
+                    <div class="profile-row"><div class="profile-label">Dept</div><div class="profile-value" id="empDept">Loading...</div></div>
+                </div>
+
+                <!-- 🚀 UPDATED: Interactive Enterprise AI Assistant -->
+                <div class="card" id="ai-card" style="display: flex; flex-direction: column;">
+                    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center;">
+                            ✨ KalingaSync AI Assistant
+                            <span style="font-size: 10px; background: rgba(88, 166, 255, 0.1); color: var(--accent); padding: 3px 8px; border-radius: 12px; font-weight: 700; margin-left: 10px; border: 1px solid rgba(88, 166, 255, 0.3);">Hiper.AI</span>
+                        </div>
+                        <button class="window-btn" id="ai-expand-btn" onclick="toggleAIFullscreen()" title="Expand Theater Mode">⛶</button>
+                    </div>
+                    
+                    <div id="ai-chat-window" style="flex: 1; min-height: 250px; max-height: 350px; overflow-y: auto; background: rgba(13, 17, 23, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 12px;">
+                        <div style="align-self: flex-start; background: rgba(48, 54, 61, 0.5); color: var(--text-main); padding: 12px 16px; border-radius: 8px; border-bottom-left-radius: 2px; font-size: 13px; max-width: 85%; line-height: 1.5; border: 1px solid var(--border);">
+                            Hello! I am your secure KalingaSync AI assistant. I can help you draft emails, analyze data, or answer technical questions. How can I assist you today?
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; flex-shrink: 0;">
+                        <input type="text" id="ai-prompt-input" style="flex: 1; background: var(--bg-color); border: 1px solid var(--border); border-radius: 6px; color: var(--text-main); padding: 12px; font-family: inherit; font-size: 13px;" placeholder="Ask me anything..." onkeypress="if(event.key === 'Enter') askAI()">
+                        <button id="ai-send-btn" class="btn-primary" style="padding: 10px 20px;" onclick="askAI()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="inbox-section" style="display: none; flex-direction: column; height: calc(100vh - 80px);">
+            <div class="header">
+                <div class="welcome-text">Secure Inbox</div>
+                <button class="btn-primary" onclick="openComposeModal('')">+ Compose Message</button>
+            </div>
+            
+            <div id="inbox-list" style="display: flex; flex-direction: column; overflow-y: auto; flex: 1;">
+                <div style="color: var(--text-muted);">Decrypting secure messages...</div>
+            </div>
+            
+            <div id="active-chat-view" style="display: none; flex-direction: column; flex: 1; overflow: hidden;">
+                </div>
+        </div>
+        
+        <div id="directory-section" style="display: none;">
+            <div class="header" style="margin-bottom: 20px;"><div class="welcome-text">Team Directory</div></div>
+            <div class="directory-grid" id="directoryGrid"><div style="color: var(--text-muted);">Loading secure directory...</div></div>
+        </div>
+
+        <!-- 🚀 NEW: Dedicated Polling Section UI -->
+        <div id="polls-section" style="display: none; padding-top: 10px;">
+            <div class="header" style="margin-bottom: 30px;">
+                <div class="welcome-text">Company Pulse & Polling</div>
+                <button class="btn-outline" onclick="fetchEmployeePolls()">↻ Refresh Polls</button>
+            </div>
+            
+            <div class="card" style="max-width: 800px; margin: 0 auto;">
+                <div class="card-title" style="border-bottom: none; padding-bottom: 0; margin-bottom: 10px;">Active Surveys</div>
+                <div style="color: var(--text-muted); font-size: 14px; margin-bottom: 25px; line-height: 1.5; border-bottom: 1px solid var(--border); padding-bottom: 20px;">
+                    Your voice matters. Participate in active company-wide polls below. All votes are mathematically verified and securely recorded in AWS.
+                </div>
+                
+                <div id="employee-polls-container" style="max-height: 65vh; overflow-y: auto; padding-right: 15px;">
+                    <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px;">Syncing live telemetry...</div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="composeModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Direct Message</h3>
+            <label>To: (Target Handle)</label><input type="text" id="composeTarget" placeholder="e.g. @john.doe">
+            <label>Secure Message</label><textarea id="composeContent" rows="5" placeholder="Type your internal message here..."></textarea>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                <button class="btn-outline" onclick="document.getElementById('composeModal').style.display='none'">Cancel</button>
+                <button class="btn-primary" id="composeBtn" onclick="transmitMessage()">Send Securely</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="updateModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Request Profile Update</h3>
+            <p class="modal-sub">Changes to Role and Department require Admin approval.</p>
+            <label>Mobile Number</label>
+            <div class="phone-input-group">
+                <select id="updateCountryCode"></select>
+                <input type="tel" id="updatePhone" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            </div>
+            <label>Physical Address</label><input type="text" id="updateAddress">
+            <label>Requested Department</label><select id="updateDept"></select>
+            <label>Requested Corporate Role</label><input type="text" id="updateRole">
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                <button class="btn-outline" onclick="document.getElementById('updateModal').style.display='none'">Cancel</button>
+                <button class="btn-primary" id="updateBtn" onclick="submitUpdateRequest()">Submit Request</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let EMPLOYEE_API = '';
+        let syncInterval; 
+        
+        // State tracking for the threaded Inbox
+        window.currentThreads = {};
+        window.activeChatHandle = null;
+
+        // 🚀 NEW: AI Overlay Toggle Logic
+        function toggleAIFullscreen() {
+            const card = document.getElementById('ai-card');
+            const btn = document.getElementById('ai-expand-btn');
+            const chatWindow = document.getElementById('ai-chat-window');
+
+            if (card.classList.contains('ai-card-expanded')) {
+                // Return to normal grid view
+                card.classList.remove('ai-card-expanded');
+                btn.innerHTML = '⛶';
+                btn.title = 'Expand Theater Mode';
+            } else {
+                // Expand to Theater Mode Overlay
+                card.classList.add('ai-card-expanded');
+                btn.innerHTML = '🗕';
+                btn.title = 'Minimize to Grid';
+                document.getElementById('ai-prompt-input').focus();
+            }
+            
+            // Auto-scroll to bottom to adjust for the new height smoothly
+            setTimeout(() => { chatWindow.scrollTop = chatWindow.scrollHeight; }, 300);
+        }
+
+        // 🛡️ SECURITY FIX 1: Inject Global XSS Sanitization Engine (Missing in Dashboard)
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/[&<>'"]/g, match => {
+                const escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+                return escapeMap[match];
+            });
+        }
+
+        // 🚀 Dynamic Stacking Toast Engine
+        function showNotif(msg, isError = false) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${isError ? 'error' : 'success'}`;
+            toast.innerText = msg;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                toast.addEventListener('animationend', () => toast.remove());
+            }, 4500);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof KalingaConfig !== 'undefined') {
+                EMPLOYEE_API = KalingaConfig.EMPLOYEE_API;
+                KalingaConfig.populateDropdowns(['updateDept'], 'departments'); 
+                KalingaConfig.populateDropdowns(['updateCountryCode'], 'countries');
+            }
+            if (!sessionStorage.getItem('kalinga_session')) return window.location.href = "index.html"; 
+            
+            loadProfileData(); 
+            initChatState(); 
+            fetchSuperNote(); 
+            fetchEmployeePolls(); // 🚀 NEW: Hydrate polls on login
+            startBackgroundSync();
+        });
+
+        // 🚀 Case-Sensitivity Sanitization globally implemented across all Handle parameters
+        async function initChatState() {
+            const userStr = sessionStorage.getItem('kalinga_session');
+            if (!userStr) return;
+            const user = JSON.parse(userStr);
+            const safeHandle = (user.Handle || '').toLowerCase(); // Cast to lowercase
+            
+            if (!safeHandle || sessionStorage.getItem('kalinga_inbox_init')) return;
+            
+            try {
+                const data = await safeFetch({ action: 'get_inbox', handle: safeHandle });
+                const messages = data.Items ? data.Items : data;
+                
+                messages.forEach(m => {
+                    if (m.ReceiverHandle === safeHandle) {
+                        const currentReadStr = sessionStorage.getItem('last_read_' + m.SenderHandle);
+                        const currentRead = currentReadStr ? parseInt(currentReadStr) : 0;
+                        const msgTime = new Date(m.Timestamp).getTime();
+                        if (msgTime > currentRead) {
+                            sessionStorage.setItem('last_read_' + m.SenderHandle, msgTime);
+                        }
+                    }
+                });
+                sessionStorage.setItem('kalinga_inbox_init', 'true');
+            } catch(e) {
+                console.warn("Silent chat initialization failed.", e);
+            }
+        }
+        
+        // 🛡️ SECURITY FIX 2: Hardened Session Termination (Clears Local & Session Storage)
+        function logout() { 
+            sessionStorage.removeItem('kalinga_session'); 
+            localStorage.clear();
+            window.location.href = "index.html"; 
+        }
+
+        function switchTab(tabId, el) {
+            document.getElementById('workspace-section').style.display = tabId === 'workspace' ? 'block' : 'none';
+            document.getElementById('inbox-section').style.display = tabId === 'inbox' ? 'flex' : 'none'; 
+            document.getElementById('directory-section').style.display = tabId === 'directory' ? 'block' : 'none';
+            
+            // 🚀 NEW: Route visibility for the Polls Section
+            const pollsSection = document.getElementById('polls-section');
+            if (pollsSection) pollsSection.style.display = tabId === 'polls' ? 'block' : 'none';
+            
+            document.querySelectorAll('.sidebar .nav-item').forEach(nav => nav.classList.remove('active')); if(el) el.classList.add('active');
+            
+            if(tabId === 'directory') fetchCompanyDirectory();
+            
+            // 🚀 NEW: Trigger the existing polling engine when tab is clicked
+            if(tabId === 'polls') fetchEmployeePolls(); 
+            
+            if(tabId === 'inbox') {
+                if (document.getElementById('active-chat-view')) document.getElementById('active-chat-view').style.display = 'none';
+                if (document.getElementById('inbox-list')) document.getElementById('inbox-list').style.display = 'flex';
+                window.activeChatHandle = null;
+                fetchInbox();
+            }
+        }
+
+        // ==========================================
+        // 🚀 REAL-TIME BACKGROUND SYNC ENGINE 
+        // ==========================================
+        function startBackgroundSync() {
+            syncInterval = setInterval(async () => {
+                let userStr = sessionStorage.getItem('kalinga_session');
+                if (!userStr) return;
+                let user = JSON.parse(userStr);
+                const safeHandle = (user.Handle || '').toLowerCase(); // Fix logic gap
+
+                try {
+                    const profileData = await safeFetch({ action: 'get_profile', email: user.EmployeeEmail });
+                    if(profileData && profileData.EmployeeEmail) {
+                        const isChanged = (user.Role !== profileData.Role) || (user.Department !== profileData.Department) || 
+                                          (user.Address !== profileData.Address) || (user.PhoneNumber !== profileData.PhoneNumber);
+                        if (isChanged) {
+                            // Preserve the isAdmin flag if it exists
+                            profileData.isAdmin = user.isAdmin;
+                            sessionStorage.setItem('kalinga_session', JSON.stringify(profileData));
+                            user = profileData; 
+                            loadProfileData(); 
+                        }
+                    }
+                } catch(e) {}
+
+                try {
+                    const noteData = await safeFetch({ action: 'get_note', handle: safeHandle });
+                    const globalContainer = document.getElementById('globalNoteContainer');
+                    const privateContainer = document.getElementById('privateNoteContainer');
+                    
+                    if (noteData.global_note && noteData.global_note.NoteContent) {
+                        document.getElementById('globalNoteContent').innerText = noteData.global_note.NoteContent;
+                        globalContainer.style.display = 'block';
+                    } else { globalContainer.style.display = 'none'; }
+
+                    if (noteData.private_note && noteData.private_note.NoteContent) {
+                        document.getElementById('privateNoteContent').innerText = noteData.private_note.NoteContent;
+                        privateContainer.style.display = 'block';
+                    } else { privateContainer.style.display = 'none'; }
+                } catch(e) {}
+
+                fetchEmployeePolls(); // 🚀 NEW: Silently sync poll percentages in the background
+
+                if(safeHandle) {
+                    try {
+                        const inboxData = await safeFetch({ action: 'get_inbox', handle: safeHandle });
+                        const messages = inboxData.Items ? inboxData.Items : inboxData;
+                        
+                        const receivedMsgs = messages.filter(m => m.ReceiverHandle === safeHandle);
+                        let hasUnread = false;
+
+                        receivedMsgs.forEach(m => {
+                            const readTimeStr = sessionStorage.getItem('last_read_' + m.SenderHandle);
+                            const readTime = readTimeStr ? parseInt(readTimeStr) : 0;
+                            if (new Date(m.Timestamp).getTime() > readTime) {
+                                hasUnread = true;
+                            }
+                        });
+
+                        if (hasUnread) {
+                            if (document.getElementById('inbox-section').style.display === 'flex' || document.getElementById('inbox-section').style.display === 'block') {
+                                fetchInbox(true); 
+                            } else {
+                                document.getElementById('inboxBadge').style.display = 'inline-block'; 
+                            }
+                        } else {
+                            document.getElementById('inboxBadge').style.display = 'none'; 
+                        }
+                    } catch(e) {}
+                }
+            }, 10000); 
+        }
+
+        // ==========================================
+        // 📩 MASTER-DETAIL INBOX & CHAT 
+        // ==========================================
+        function openComposeModal(handle) {
+            document.getElementById('composeTarget').value = handle ? `@${handle}` : '';
+            document.getElementById('composeContent').value = '';
+            document.getElementById('composeModal').style.display = 'flex';
+        }
+
+        async function transmitMessage(targetHandle = null, contentBody = null) {
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session'));
+            const target = targetHandle || document.getElementById('composeTarget').value.trim();
+            const content = contentBody || document.getElementById('composeContent').value.trim();
+            
+            if(!target || !content) return showNotif("Please provide a message and a target handle.", true);
+
+            // 🛡️ UX FIX: Clean target format to safely compare against cache
+            let cleanTarget = target.startsWith('@') ? target.substring(1).toLowerCase() : target.toLowerCase();
+            
+            // 🛡️ UX FIX: Prevent sending secure messages to oneself
+            if (cleanTarget === (user.Handle || '').toLowerCase()) {
+                if (!targetHandle) {
+                    const btn = document.getElementById('composeBtn');
+                    btn.innerText = "Send Securely"; 
+                    btn.disabled = false;
+                }
+                return showNotif("You cannot send a secure message to yourself.", true);
+            }
+
+            // 🛡️ PRE-FLIGHT VALIDATION: Verify handle exists in the corporate directory
+            if (!window.directoryCache || window.directoryCache.length === 0) {
+                try {
+                    const data = await safeFetch({ action: 'get_directory' });
+                    window.directoryCache = data.Items || data;
+                } catch (e) {
+                    console.warn("Could not fetch directory for handle validation.");
+                }
+            }
+            
+            if (window.directoryCache && window.directoryCache.length > 0) {
+                const handleExists = window.directoryCache.some(emp => (emp.Handle || '').toLowerCase() === cleanTarget);
+                if (!handleExists) {
+                    return showNotif(`Validation Error: Employee handle @${cleanTarget} does not exist in the directory.`, true);
+                }
+            }
+
+            const btn = document.getElementById('composeBtn');
+            if(!targetHandle) { btn.innerText = "Transmitting..."; btn.disabled = true; }
+
+            const payload = { 
+                action: 'send_message', 
+                receiver_handle: cleanTarget, // Use cleaned and validated target
+                sender_email: user.EmployeeEmail, 
+                sender_name: user.FullName, 
+                sender_handle: (user.Handle || '').toLowerCase(), // Ensure case consistency
+                sender_photo: user.PhotoURL || '', 
+                content: content 
+            };
+
+            try {
+                await safeFetch(payload);
+                
+                if (!targetHandle) {
+                    btn.innerText = "✅ Sent!";
+                    btn.style.backgroundColor = "var(--success)";
+                    setTimeout(() => {
+                        document.getElementById('composeModal').style.display = 'none';
+                        document.getElementById('composeContent').value = '';
+                        document.getElementById('composeTarget').value = '';
+                        btn.innerText = "Send Securely";
+                        btn.style.backgroundColor = "var(--accent)";
+                        btn.disabled = false;
+                    }, 1000);
+                }
+                
+                showNotif("Secure message delivered!");
+                if(document.getElementById('inbox-section').style.display === 'flex' || document.getElementById('inbox-section').style.display === 'block') fetchInbox(true); 
+            } catch (err) { 
+                showNotif(err.message, true); 
+                if(!targetHandle) { btn.innerText = "Send Securely"; btn.disabled = false; }
+            } 
+        }
+
+        function sendQuickReply(partnerHandle) {
+            const inputEl = document.getElementById(`reply-${partnerHandle}`);
+            const msgContent = inputEl.value.trim();
+            if (msgContent) { 
+                inputEl.value = ''; 
+                inputEl.placeholder = 'Sending...'; 
+                inputEl.disabled = true; 
+                transmitMessage(partnerHandle, msgContent); 
+            }
+        }
+
+        async function deleteThread(partnerHandle) {
+            if(!confirm(`Are you sure you want to permanently clear your chat history with @${partnerHandle}?`)) return;
+            
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session'));
+            showNotif("Clearing chat...", false);
+
+            try {
+                await safeFetch({ action: 'delete_thread', my_handle: (user.Handle || '').toLowerCase(), partner_handle: partnerHandle.toLowerCase() });
+                showNotif("Chat history cleared.");
+                if (window.activeChatHandle === partnerHandle) closeChat(); 
+                fetchInbox(true); 
+            } catch (err) { showNotif("Failed to clear chat.", true); }
+        }
+
+        async function fetchInbox(silent = false) {
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session')); 
+            const safeHandle = (user.Handle || '').toLowerCase(); // Fix Logic Gap
+            
+            const list = document.getElementById('inbox-list');
+            
+            if(!safeHandle) return list.innerHTML = '<div style="color:var(--warning);">Handle not generated yet. Cannot receive messages.</div>';
+            if(!silent && !window.activeChatHandle) list.innerHTML = '<div style="color: var(--accent);">Decrypting secure threads...</div>';
+
+            try {
+                const data = await safeFetch({ action: 'get_inbox', handle: safeHandle });
+                const messages = data.Items ? data.Items : data;
+
+                if(!messages || messages.length === 0) {
+                    list.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted);">Your secure inbox is empty.</div>';
+                    if (window.activeChatHandle) closeChat();
+                    document.getElementById('inboxBadge').style.display = 'none';
+                    return;
+                }
+
+                const threads = {};
+                messages.forEach(msg => {
+                    // 🛡️ UX FIX: Silently filter out any legacy self-messages to fix dashboard looping glitches
+                    if (msg.SenderHandle === msg.ReceiverHandle) return;
+
+                    const isMe = msg.SenderHandle === safeHandle;
+                    const partner = isMe ? msg.ReceiverHandle : msg.SenderHandle;
+                    if(!partner) return;
+                    
+                    let pPhoto = '';
+                    if (!isMe && msg.SenderPhoto) pPhoto = msg.SenderPhoto;
+
+                    if(!threads[partner]) threads[partner] = { partnerHandle: partner, partnerName: isMe ? `@${partner}` : msg.SenderName, messages: [], partnerPhoto: pPhoto };
+                    
+                    if (!isMe && msg.SenderPhoto) threads[partner].partnerPhoto = msg.SenderPhoto; 
+                    threads[partner].messages.push(msg);
+                });
+
+                // If filtering removed all valid messages
+                if (Object.keys(threads).length === 0) {
+                    list.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted);">Your secure inbox is empty.</div>';
+                    if (window.activeChatHandle) closeChat();
+                    document.getElementById('inboxBadge').style.display = 'none';
+                    return;
+                }
+
+                if (window.activeChatHandle && threads[window.activeChatHandle]) {
+                    const activeThread = threads[window.activeChatHandle];
+                    const activeLastMsg = activeThread.messages[activeThread.messages.length - 1];
+                    if (activeLastMsg) {
+                        sessionStorage.setItem('last_read_' + window.activeChatHandle, new Date(activeLastMsg.Timestamp).getTime());
+                    }
+                }
+
+                window.currentThreads = threads;
+
+                let globalUnreadFound = false;
+
+                list.innerHTML = Object.values(threads).map(thread => {
+                    const lastMsg = thread.messages[thread.messages.length - 1];
+                    const preview = lastMsg.MessageContent.replace(/\n/g, ' ').substring(0, 40) + (lastMsg.MessageContent.length > 40 ? '...' : '');
+                    const time = new Date(lastMsg.Timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    // 🛡️ SECURITY FIX 3: Prevent XSS execution in Inbox previews and names
+                    const safeName = escapeHTML(thread.partnerName);
+                    const safePreview = escapeHTML(preview);
+                    const pic = thread.partnerPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(thread.partnerName.replace('@',''))}&background=161b22&color=8b949e`;
+                    
+                    const readTimeStr = sessionStorage.getItem('last_read_' + thread.partnerHandle);
+                    const readTime = readTimeStr ? parseInt(readTimeStr) : 0;
+                    const isUnread = (lastMsg.SenderHandle !== safeHandle) && (new Date(lastMsg.Timestamp).getTime() > readTime);
+                    
+                    if (isUnread) globalUnreadFound = true;
+
+                    const badgeHtml = isUnread ? `<span class="nav-badge" style="display:inline-block; margin-left: 8px;">NEW</span>` : '';
+
+                    return `
+                    <div class="thread-list-item" onclick="openChat('${escapeHTML(thread.partnerHandle)}')">
+                        <img src="${escapeHTML(pic)}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);">
+                        <div class="thread-list-info">
+                            <div class="thread-list-name" style="display: flex; align-items: center;">${safeName} ${badgeHtml}</div>
+                            <div class="thread-list-preview">${lastMsg.SenderHandle === safeHandle ? 'You: ' : ''}${safePreview}</div>
+                        </div>
+                        <div class="thread-list-time">${time}</div>
+                    </div>`;
+                }).join('');
+
+                if (!globalUnreadFound) { document.getElementById('inboxBadge').style.display = 'none'; }
+
+                if (window.activeChatHandle && window.currentThreads[window.activeChatHandle]) {
+                    const replyInput = document.getElementById(`reply-${window.activeChatHandle}`);
+                    const savedText = replyInput ? replyInput.value : '';
+                    
+                    openChat(window.activeChatHandle, true); 
+                    
+                    const newReplyInput = document.getElementById(`reply-${window.activeChatHandle}`);
+                    if (newReplyInput) {
+                        newReplyInput.value = savedText;
+                        newReplyInput.focus();
+                    }
+                    
+                    const msgContainer = document.getElementById('chat-messages-container');
+                    if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
+                } else if (window.activeChatHandle && !window.currentThreads[window.activeChatHandle]) {
+                    closeChat();
+                }
+            } catch (err) { list.innerHTML = `<div style="color: var(--error);">Error: ${err.message}</div>`; }
+        }
+
+        function openChat(partnerHandle, isRefresh = false) {
+            const thread = window.currentThreads[partnerHandle];
+            if (!thread) return;
+
+            const lastMsg = thread.messages[thread.messages.length - 1];
+            if (lastMsg) sessionStorage.setItem('last_read_' + partnerHandle, new Date(lastMsg.Timestamp).getTime());
+
+            window.activeChatHandle = partnerHandle;
+            document.getElementById('inbox-list').style.display = 'none';
+            
+            const chatView = document.getElementById('active-chat-view');
+            chatView.style.display = 'flex';
+            
+            const safeHandle = JSON.parse(sessionStorage.getItem('kalinga_session')).Handle.toLowerCase();
+
+            const bubbles = thread.messages.map(m => {
+                const isMe = m.SenderHandle === safeHandle;
+                // 🛡️ SECURITY FIX 4: Prevent XSS execution inside active chat bubbles
+                return `<div class="chat-bubble ${isMe ? 'chat-me' : 'chat-them'}"><div class="chat-time">${new Date(m.Timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>${escapeHTML(m.MessageContent)}</div>`;
+            }).join('');
+            
+            chatView.innerHTML = `
+            <button class="back-btn" onclick="closeChat()">← Back to Inbox</button>
+            <div class="thread-card" style="margin-bottom: 0; flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                <div class="thread-header" style="flex-shrink: 0;">
+                    <div>
+                        <span>${escapeHTML(thread.partnerName)}</span>
+                        <span style="font-size: 12px; color: var(--accent); margin-left: 8px;">@${escapeHTML(thread.partnerHandle)}</span>
+                    </div>
+                    <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; border-color: var(--error); color: var(--error);" onclick="deleteThread('${escapeHTML(thread.partnerHandle)}')">🗑️ Delete Chat</button>
+                </div>
+                <div class="thread-messages" id="chat-messages-container" style="flex: 1; overflow-y: auto;">
+                    ${bubbles}
+                </div>
+                <div class="reply-box" style="flex-shrink: 0; margin-top: 15px;">
+                    <input type="text" id="reply-${escapeHTML(thread.partnerHandle)}" class="reply-input" placeholder="Type a secure reply..." onkeypress="if(event.key === 'Enter') sendQuickReply('${escapeHTML(thread.partnerHandle)}')">
+                    <button class="btn-primary" onclick="sendQuickReply('${escapeHTML(thread.partnerHandle)}')">Reply</button>
+                </div>
+            </div>`;
+
+            if (!isRefresh) {
+                const msgContainer = document.getElementById('chat-messages-container');
+                if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
+                
+                fetchInbox(true);
+            }
+        }
+
+        function closeChat() {
+            document.getElementById('active-chat-view').style.display = 'none';
+            document.getElementById('active-chat-view').innerHTML = '';
+            document.getElementById('inbox-list').style.display = 'flex';
+            window.activeChatHandle = null;
+        }
+
+        // ==========================================
+        // 🔄 BROADCAST ENGINE
+        // ==========================================
+        async function fetchSuperNote() {
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session'));
+            const safeHandle = user ? (user.Handle || '').toLowerCase() : '';
+            try {
+                const data = await safeFetch({ action: 'get_note', handle: safeHandle });
+                
+                if (data.global_note && data.global_note.NoteContent) { 
+                    document.getElementById('globalNoteContent').innerText = data.global_note.NoteContent; 
+                    document.getElementById('globalNoteContainer').style.display = 'block'; 
+                    
+                    const acks = data.global_note.Acknowledgments || [];
+                    const actionDiv = document.getElementById('globalNoteAction');
+                    
+                    if (acks.includes(safeHandle)) {
+                        actionDiv.innerHTML = `<span style="display: inline-flex; align-items: center; background: rgba(46, 160, 67, 0.15); border: 1px solid var(--success); color: var(--success); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; box-shadow: 0 0 10px rgba(46, 160, 67, 0.1);">✅ You and ${Math.max(0, acks.length - 1)} others reacted to this.</span>`;
+                    } else {
+                        actionDiv.innerHTML = `<button class="btn-outline" style="border-color: var(--accent); color: var(--accent); padding: 6px 12px; font-size: 12px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;" onclick="acknowledgeNote('LATEST_PIN')">👍</button>`;
+                    }
+                } else { 
+                    document.getElementById('globalNoteContainer').style.display = 'none'; 
+                }
+                
+                if (data.private_note && data.private_note.NoteContent) { 
+                    document.getElementById('privateNoteContent').innerText = data.private_note.NoteContent; 
+                    document.getElementById('privateNoteContainer').style.display = 'block'; 
+                    
+                    const acks = data.private_note.Acknowledgments || [];
+                    const actionDiv = document.getElementById('privateNoteAction');
+                    
+                    if (acks.includes(safeHandle)) {
+                        actionDiv.innerHTML = `<span style="display: inline-flex; align-items: center; background: rgba(46, 160, 67, 0.15); border: 1px solid var(--success); color: var(--success); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; box-shadow: 0 0 10px rgba(46, 160, 67, 0.1);">✅ Reacted</span>`;
+                    } else {
+                        actionDiv.innerHTML = `<button class="btn-outline" style="border-color: var(--private-alert); color: var(--private-alert); padding: 6px 12px; font-size: 12px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;" onclick="acknowledgeNote('PIN_${safeHandle}')">👍</button>`;
+                    }
+                } else { 
+                    document.getElementById('privateNoteContainer').style.display = 'none'; 
+                }
+            } catch (err) {}
+        }
+
+        async function acknowledgeNote(noteId) {
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session'));
+            const safeHandle = (user.Handle || '').toLowerCase();
+            try {
+                await safeFetch({ action: 'acknowledge_note', note_id: noteId, handle: safeHandle });
+                fetchSuperNote(); // Instantly refresh the UI to show the ✅
+            } catch (err) {
+                showNotif("Failed to acknowledge note.", true);
+            }
+        }
+
+        // ==========================================
+        // 📊 COMPANY POLLING ENGINE (EMPLOYEE)
+        // ==========================================
+        async function fetchEmployeePolls() {
+            const container = document.getElementById('employee-polls-container');
+            const userStr = sessionStorage.getItem('kalinga_session');
+            if (!userStr) return;
+            const safeHandle = JSON.parse(userStr).Handle.toLowerCase();
+
+            try {
+                const data = await safeFetch({ action: 'get_polls' });
+                
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; font-style: italic;">No active company polls right now.</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(poll => {
+                    const hasVoted = poll.Votes && poll.Votes.hasOwnProperty(safeHandle);
+                    const totalVotes = Object.keys(poll.Votes || {}).length;
+                    let contentHtml = '';
+
+                    if (hasVoted) {
+                        // 📊 Render Results View (If they already voted)
+                        contentHtml = poll.Options.map((opt, idx) => {
+                            const votesForOpt = Object.values(poll.Votes || {}).filter(v => v === idx).length;
+                            const percentage = totalVotes === 0 ? 0 : Math.round((votesForOpt / totalVotes) * 100);
+                            const isMyVote = poll.Votes[safeHandle] === idx;
+                            
+                            // 🚀 UI/UX FIX: Use solid distinct colors so bars don't fade into the background!
+                            const barColor = isMyVote ? 'var(--success)' : 'var(--text-muted)';
+                            const labelColor = isMyVote ? 'var(--success)' : 'var(--text-main)';
+
+                            return `
+                            <div style="margin-bottom: 12px; font-size: 13px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color: ${labelColor}; font-weight: ${isMyVote ? '600' : '400'};">
+                                    <span>${escapeHTML(opt)} ${isMyVote ? '✓' : ''}</span>
+                                    <span>${percentage}%</span>
+                                </div>
+                                <div style="width: 100%; background: rgba(48, 54, 61, 0.5); height: 8px; border-radius: 4px; overflow: hidden;">
+                                    <div style="width: ${percentage}%; background: ${barColor}; height: 100%; transition: width 0.5s ease-in-out;"></div>
+                                </div>
+                            </div>`;
+                        }).join('');
+                        contentHtml += `<div style="font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 10px;">Total Votes: ${totalVotes}</div>`;
+                    } else {
+                        // 🗳️ Render Voting View (If they haven't voted yet)
+                        contentHtml = poll.Options.map((opt, idx) => `
+                            <label style="display: block; margin-bottom: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+                                <input type="radio" name="poll_${poll.PollID}" value="${idx}" style="margin-right: 10px; cursor: pointer;">
+                                <span style="font-size: 13px;">${escapeHTML(opt)}</span>
+                            </label>
+                        `).join('');
+                        contentHtml += `<button class="btn-primary" style="width: 100%; margin-top: 5px; padding: 8px;" onclick="submitPollVote('${poll.PollID}')">Submit Vote</button>`;
+                    }
+
+                    return `
+                    <div style="background: rgba(13, 17, 23, 0.5); padding: 15px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px;">
+                        <div style="font-weight: 600; font-size: 14px; margin-bottom: 15px; color: var(--text-main);">${escapeHTML(poll.Question)}</div>
+                        ${contentHtml}
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                if(!container.innerHTML.includes('Error')) {
+                    container.innerHTML = `<div style="color: var(--error); font-size: 13px;">Error loading polls: ${escapeHTML(err.message)}</div>`;
+                }
+            }
+        }
+
+        async function submitPollVote(pollId) {
+            const selected = document.querySelector(`input[name="poll_${pollId}"]:checked`);
+            if (!selected) return showNotif("Please select an option before voting.", true);
+
+            const optionIndex = parseInt(selected.value);
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session'));
+            const safeHandle = (user.Handle || '').toLowerCase();
+
+            try {
+                await safeFetch({ 
+                    action: 'submit_vote', 
+                    poll_id: pollId, 
+                    option_index: optionIndex, 
+                    handle: safeHandle 
+                });
+                showNotif("Vote cast successfully!");
+                fetchEmployeePolls(); // Instantly morph the UI into the results view
+            } catch (err) {
+                showNotif(err.message, true);
+            }
+        }
+
+        // ==========================================
+        // 👥 SYSTEM, DIRECTORY, & PROFILE
+        // ==========================================
+        function splitPhone(fullPhone) {
+            let code = "+91"; let number = fullPhone || "";
+            if (fullPhone && fullPhone.startsWith('+')) {
+                const options = (typeof KalingaConfig !== 'undefined' && KalingaConfig.COUNTRY_CODES) 
+                                ? KalingaConfig.COUNTRY_CODES.map(c => c.code) 
+                                : ['+91', '+1', '+44', '+61'];
+                for (let opt of options) {
+                    if (fullPhone.startsWith(opt)) {
+                        code = opt;
+                        number = fullPhone.substring(opt.length);
+                        break;
+                    }
+                }
+            }
+            return { code, number };
+        }
+
+        function loadProfileData() {
+            const userStr = sessionStorage.getItem('kalinga_session');
+            if (!userStr) return;
+            const user = JSON.parse(userStr);
+            
+            document.getElementById('welcomeMessage').innerText = `Welcome back, ${user.FullName.split(' ')[0]}.`;
+            document.getElementById('empName').innerText = user.FullName || 'N/A'; document.getElementById('empEmail').innerText = user.EmployeeEmail || 'N/A'; document.getElementById('empPhone').innerText = user.PhoneNumber || 'N/A'; document.getElementById('empRole').innerText = user.Role || 'N/A'; document.getElementById('empDept').innerText = user.Department || 'N/A'; document.getElementById('empHandle').innerText = user.Handle ? `@${user.Handle}` : 'Pending';
+            document.getElementById('empPhoto').src = user.PhotoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.FullName || 'User')}&background=161b22&color=8b949e`;
+            document.getElementById('removePhotoBtn').style.display = (user.PhotoURL && user.PhotoURL.length > 5) ? 'inline-block' : 'none';
+            
+            // 🚀 NEW: Reveal the secret Admin button if they have clearance!
+            if (user.isAdmin) {
+                document.getElementById('adminPortalBtn').style.display = 'flex';
+            }
+        }
+
+        async function fetchCompanyDirectory() {
+            const grid = document.getElementById('directoryGrid'); grid.innerHTML = '<div style="color: var(--accent);">Syncing with AWS Directory Services...</div>';
+            try {
+                const data = await safeFetch({ action: 'get_directory' }); const directory = data.Items ? data.Items : data;
+                window.directoryCache = directory;
+                if (!directory || directory.length === 0) return grid.innerHTML = '<div style="color: var(--text-muted);">No employees found in directory.</div>';
+                grid.innerHTML = directory.map(emp => {
+                    const pic = emp.PhotoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.FullName || 'User')}&background=161b22&color=8b949e`;
+                    
+                    // 🛡️ UX FIX: Disable the "Direct Message" button if it's the user's own profile card
+                    const currentUserHandle = (JSON.parse(sessionStorage.getItem('kalinga_session')).Handle || '').toLowerCase();
+                    const isMe = (emp.Handle || '').toLowerCase() === currentUserHandle;
+                    
+                    const actionBtn = isMe 
+                        ? `<button class="btn-outline" style="width: 100%; opacity: 0.5; cursor: not-allowed;" disabled>👤 This is You</button>`
+                        : `<button class="btn-outline" style="width: 100%;" onclick="openComposeModal('${escapeHTML(emp.Handle)}')">💬 Direct Message</button>`;
+
+                    // 🛡️ SECURITY FIX 5: Prevent XSS execution in Corporate Directory Cards
+                    return `<div class="dir-card"><img src="${escapeHTML(pic)}" class="dir-photo"><div class="dir-name">${escapeHTML(emp.FullName || 'Unknown')}</div><div class="dir-handle">${emp.Handle ? '@' + escapeHTML(emp.Handle) : ''}</div><div class="dir-role">${escapeHTML(emp.Role || 'N/A')}</div><div class="dir-dept">${escapeHTML(emp.Department || 'N/A')}</div>${actionBtn}</div>`
+                }).join('');
+            } catch (err) { grid.innerHTML = `<div style="color: var(--error);">Error: ${escapeHTML(err.message)}</div>`; }
+        }
+
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const user = JSON.parse(sessionStorage.getItem('kalinga_session')); showNotif("Uploading...", false);
+                try {
+                    const result = await safeFetch({ action: 'upload_photo', email: user.EmployeeEmail, image_data: e.target.result });
+                    user.PhotoURL = result.photo_url; sessionStorage.setItem('kalinga_session', JSON.stringify(user));
+                    loadProfileData(); showNotif("Photo updated!");
+                } catch (err) { showNotif(err.message, true); }
+            }; reader.readAsDataURL(file); 
+        }
+
+        async function removePhoto() {
+            if(!confirm("Remove your profile picture?")) return;
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session')); showNotif("Removing...", false);
+            try { await safeFetch({ action: 'remove_photo', email: user.EmployeeEmail }); user.PhotoURL = ""; sessionStorage.setItem('kalinga_session', JSON.stringify(user)); loadProfileData(); showNotif("Photo removed."); } catch (err) { showNotif(err.message, true); }
+        }
+
+        function openUpdateModal() {
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session'));
+            const parsedPhone = splitPhone(user.PhoneNumber);
+            document.getElementById('updateCountryCode').value = parsedPhone.code;
+            document.getElementById('updatePhone').value = parsedPhone.number;
+
+            document.getElementById('updateAddress').value = user.Address || ''; 
+            document.getElementById('updateDept').value = user.Department || ''; 
+            document.getElementById('updateRole').value = user.Role || ''; 
+            document.getElementById('updateModal').style.display = 'flex';
+        }
+
+        async function submitUpdateRequest() {
+            const user = JSON.parse(sessionStorage.getItem('kalinga_session'));
+            const payload = { action: 'request_update', email: user.EmployeeEmail, phone: document.getElementById('updateCountryCode').value + document.getElementById('updatePhone').value, address: document.getElementById('updateAddress').value, dept: document.getElementById('updateDept').value, role: document.getElementById('updateRole').value };
+            const btn = document.getElementById('updateBtn'); btn.innerText = "Submitting..."; btn.disabled = true;
+            try { await safeFetch(payload); showNotif("Update Request submitted."); document.getElementById('updateModal').style.display = 'none'; } catch(err) { showNotif(err.message, true); } finally { btn.innerText = "Submit Request"; btn.disabled = false; }
+        }
+        
+        // ==========================================
+        // 🤖 KALINGASYNC AI CHAT ENGINE
+        // ==========================================
+        
+        // 🚀 State variable to store conversational memory
+        let aiChatHistory = []; 
+        const MAX_CLIENT_HISTORY = 4; // 🛡️ CLIENT FIX: Enforce local memory trimming
+        let isAiRequestInProgress = false;
+        let lastAiCallAt = 0;
+        const AI_COOLDOWN_MS = 20000;
+
+        function formatAIResponse(text) {
+            // A lightweight, secure markdown parser for basic formatting (bold, italic, code)
+            let formatted = escapeHTML(text);
+            
+            // 🚀 UI/UX FIX: Render multiline Markdown code blocks cleanly with a native app feel
+            formatted = formatted.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+                return `<div style="background: #0d1117; border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);">
+                            <div style="background: rgba(48, 54, 61, 0.4); padding: 6px 12px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--border); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">${lang || 'CODE BLOCK'}</div>
+                            <div style="padding: 12px; overflow-x: auto; white-space: pre;"><code style="font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; color: #c9d1d9;">${code}</code></div>
+                        </div>`;
+            });
+            
+            // Fallback for code blocks without a specified language
+            formatted = formatted.replace(/```([\s\S]*?)```/g, function(match, code) {
+                return `<div style="background: #0d1117; border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; padding: 12px; overflow-x: auto; white-space: pre; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);"><code style="font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; color: #c9d1d9;">${code}</code></div>`;
+            });
+
+            // Standard inline formatting
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong style="color: white;">$1</strong>'); 
+            formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>'); 
+            formatted = formatted.replace(/`([^`]+)`/g, '<code style="background: rgba(88, 166, 255, 0.15); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px;">$1</code>'); 
+            
+            return formatted;
+        }
+
+        async function askAI() {
+            const inputEl = document.getElementById('ai-prompt-input');
+            const btn = document.getElementById('ai-send-btn');
+            const chatWindow = document.getElementById('ai-chat-window');
+
+            const prompt = inputEl.value.trim();
+            if (!prompt) return;
+
+            // Prevent overlapping or too-fast requests
+            if (isAiRequestInProgress) {
+                showNotif("AI is still responding. Please wait...", true);
+                return;
+            }
+
+            const now = Date.now();
+            if (now - lastAiCallAt < AI_COOLDOWN_MS) {
+                showNotif("Please wait before sending another request.", true);
+                return;
+            }
+
+            isAiRequestInProgress = true;
+            lastAiCallAt = now;
+
+            // 1. Append User Message to UI
+            const userBubble = `<div style="align-self: flex-end; background: var(--accent); color: white; padding: 10px 14px; border-radius: 8px; border-bottom-right-radius: 2px; font-size: 13px; max-width: 85%; line-height: 1.4; box-shadow: 0 4px 12px rgba(88, 166, 255, 0.2);">${escapeHTML(prompt)}</div>`;
+            chatWindow.insertAdjacentHTML('beforeend', userBubble);
+
+            // 2. Append Loading State to UI
+            const loadingId = 'ai-loading-' + Date.now();
+            const loadingBubble = `<div id="${loadingId}" style="align-self: flex-start; background: rgba(48, 54, 61, 0.5); color: var(--accent); padding: 10px 14px; border-radius: 8px; border-bottom-left-radius: 2px; font-size: 13px; max-width: 85%; border: 1px solid var(--border);">✨ Thinking...</div>`;
+            chatWindow.insertAdjacentHTML('beforeend', loadingBubble);
+
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            // Lock UI
+            inputEl.value = '';
+            inputEl.disabled = true;
+            btn.disabled = true;
+
+            // MEMORY STEP 1: Append the user's message
+            aiChatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            // Trim the array locally BEFORE sending over the network
+            if (aiChatHistory.length > MAX_CLIENT_HISTORY) {
+                aiChatHistory = aiChatHistory.slice(-MAX_CLIENT_HISTORY);
+                // Ensure the array always starts with a 'user' role for Gemini
+                if (aiChatHistory.length > 0 && aiChatHistory[0].role === 'model') {
+                    aiChatHistory.shift();
+                }
+            }
+
+            try {
+                // MEMORY STEP 2: Ping the AWS API Gateway
+                const response = await safeFetch({ action: 'ask_ai', prompt: prompt, history: aiChatHistory });
+
+                // Remove Loader & Extract AI Response
+                const loader = document.getElementById(loadingId);
+                if (loader) loader.remove();
+
+                const replyText = response.reply || response;
+
+                // MEMORY STEP 3: Append the AI's reply to the memory array locally
+                aiChatHistory.push({ role: "model", parts: [{ text: replyText }] });
+
+                // Use white-space: pre-wrap to respect line breaks from the AI
+                const aiBubble = `<div style="align-self: flex-start; background: rgba(48, 54, 61, 0.5); color: var(--text-main); padding: 12px 16px; border-radius: 8px; border-bottom-left-radius: 2px; font-size: 13px; max-width: 85%; line-height: 1.5; border: 1px solid var(--border); white-space: pre-wrap;">${formatAIResponse(replyText)}</div>`;
+                chatWindow.insertAdjacentHTML('beforeend', aiBubble);
+
+            } catch (err) {
+                // If request fails, remove user's message so the sequence doesn't break
+                aiChatHistory.pop(); 
+
+                const loader = document.getElementById(loadingId);
+                if (loader) loader.remove();
+
+                // Catch the 429 Rate Limit specifically and show a friendly warning
+                const isRateLimit = err.message.includes('429') || err.message.includes('Quota') || err.message.includes('RESOURCE_EXHAUSTED') || err.message.includes('Too Many');
+
+                const displayMsg = isRateLimit 
+                    ? "⏳ I'm currently resting! I've received too many requests. Please wait about 60 seconds and try again." 
+                    : `⚠️ AI Error: ${err.message}`;
+
+                const bubbleColor = isRateLimit ? 'var(--private-alert)' : 'var(--error)';
+                const bubbleBg = isRateLimit ? 'rgba(210, 153, 34, 0.1)' : 'rgba(248, 81, 73, 0.1)';
+
+                const errorBubble = `<div style="align-self: flex-start; background: ${bubbleBg}; color: ${bubbleColor}; padding: 10px 14px; border-radius: 8px; border-bottom-left-radius: 2px; font-size: 13px; max-width: 85%; border: 1px solid ${bubbleColor};">${escapeHTML(displayMsg)}</div>`;
+                chatWindow.insertAdjacentHTML('beforeend', errorBubble);
+
+            } finally {
+                // Unlock UI
+                inputEl.disabled = false;
+                btn.disabled = false;
+                isAiRequestInProgress = false;
+                inputEl.focus();
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>

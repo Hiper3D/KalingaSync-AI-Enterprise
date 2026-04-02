@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KalingaSync AI | Enterprise Gateway</title>
+    <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js/dist/amazon-cognito-identity.min.js"></script>
+    <script src="kalinga-config.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117; --card-bg: #161b22; --text-main: #c9d1d9;
+            --text-muted: #8b949e; --accent: #58a6ff; --accent-hover: #1f6feb;
+            --border: #30363d; --error: #f85149; --success: #3fb950; --warning: #d29922;
+        }
+        body {
+            background-color: var(--bg-color); color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0; padding: 20px;
+        }
+        .login-container {
+            background-color: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; padding: 35px; width: 100%; max-width: 420px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+        }
+        .logo { text-align: center; font-size: 26px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .subtitle { text-align: center; color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+        
+        .form-group { margin-bottom: 18px; }
+        .form-row { display: flex; gap: 12px; margin-bottom: 18px; }
+        .form-row .form-group { margin-bottom: 0; flex: 1; }
+        
+        label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 500; color: var(--text-muted); }
+        input, select {
+            width: 100%; padding: 11px 14px; background-color: var(--bg-color);
+            border: 1px solid var(--border); border-radius: 6px; color: var(--text-main);
+            box-sizing: border-box; font-size: 14px; transition: border-color 0.2s;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15); }
+        
+        /* Custom UI for Password Toggle */
+        .password-wrapper { position: relative; display: flex; align-items: center; }
+        .password-wrapper input { padding-right: 50px; }
+        .toggle-password {
+            position: absolute; right: 12px; background: transparent; border: none;
+            color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer;
+            padding: 0; margin: 0; width: auto; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .toggle-password:hover { color: var(--text-main); background: transparent; }
+
+        /* Sleek Phone Input Group */
+        .phone-input-group { display: flex; }
+        .phone-input-group select { 
+            width: 95px; border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; 
+            background-color: rgba(48, 54, 61, 0.5); padding-left: 8px; padding-right: 4px; cursor: pointer;
+        }
+        .phone-input-group input { flex: 1; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+
+        button.primary-btn {
+            width: 100%; padding: 12px; background-color: var(--accent); color: #ffffff;
+            border: none; border-radius: 6px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: background-color 0.2s; margin-top: 10px;
+        }
+        button.primary-btn:hover:not(:disabled) { background-color: var(--accent-hover); }
+        button.primary-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        
+        .toggle-link { display: block; text-align: center; margin-top: 22px; color: var(--accent); font-size: 13px; cursor: pointer; }
+        .toggle-link:hover { text-decoration: underline; }
+        
+        .message-box { font-size: 12px; text-align: center; margin-top: 15px; display: none; padding: 10px; border-radius: 6px; }
+        .error { color: var(--error); background: rgba(248, 81, 73, 0.1); border: 1px solid var(--error); }
+        .success { color: var(--success); background: rgba(63, 185, 80, 0.1); border: 1px solid var(--success); }
+        
+        #registerForm, #newPasswordForm, #forgotPasswordForm, #confirmResetForm { display: none; }
+        .status-badge { text-align: center; font-size: 11px; color: var(--success); margin-top: 25px; font-weight: 600; opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="logo">KalingaSync AI</div>
+        
+        <div id="loginForm">
+            <div class="subtitle">Secure Internal Directory</div>
+            <div class="form-group">
+                <label>Corporate Email</label>
+                <input type="email" id="loginEmail" placeholder="admin@kalingasync.com">
+            </div>
+            <div class="form-group">
+                <label>Enter Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="loginPassword" placeholder="••••••••">
+                    <button type="button" class="toggle-password" onclick="togglePass('loginPassword', this)">Show</button>
+                </div>
+            </div>
+            <button id="loginBtn" class="primary-btn" onclick="loginUser()">Secure Login</button>
+            <div id="loginMessage" class="message-box"></div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                <a class="toggle-link" style="margin-top: 0;" onclick="toggleViews('forgotPasswordForm')">Forgot Password?</a>
+                <a class="toggle-link" style="margin-top: 0;" onclick="toggleViews('registerForm')">Request Access →</a>
+            </div>
+        </div>
+
+        <div id="newPasswordForm">
+            <div class="subtitle" style="color: var(--warning); font-weight:600;">Action Required: Update Temporary Password</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Create Permanent Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="newPassInput" placeholder="Min 8 chars">
+                        <button type="button" class="toggle-password" onclick="togglePass('newPassInput', this)">Show</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="newPassConfirmInput" placeholder="Confirm">
+                        <button type="button" class="toggle-password" onclick="togglePass('newPassConfirmInput', this)">Show</button>
+                    </div>
+                </div>
+            </div>
+            <button id="newPassBtn" class="primary-btn" onclick="submitNewPassword()">Set Permanent Password</button>
+            <div id="newPassMessage" class="message-box"></div>
+            <a class="toggle-link" onclick="location.reload()">← Cancel Login</a>
+        </div>
+
+        <div id="forgotPasswordForm">
+            <div class="subtitle">Account Recovery Verification</div>
+            <div class="form-group">
+                <label>Enter Corporate Email</label>
+                <input type="email" id="recoverEmail" placeholder="john.doe@kalingasync.com">
+            </div>
+            <button id="recoverBtn" class="primary-btn" onclick="initiateForgotPassword()">Send Verification Code</button>
+            <div id="recoverMessage" class="message-box"></div>
+            <a class="toggle-link" onclick="toggleViews('loginForm')">← Back to Login</a>
+        </div>
+
+        <div id="confirmResetForm">
+            <div class="subtitle" style="color: var(--accent); font-weight:600;">Secure Reset Triggered</div>
+            <p id="resetSubtext" style="font-size: 12px; color: var(--text-muted); text-align: center; margin-bottom: 20px;">Check your email for the 6-digit verification code.</p>
+            
+            <div class="form-group">
+                <label>6-Digit Verification Code</label>
+                <input type="text" id="resetCode" placeholder="123456" maxlength="6" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            </div>
+
+            <button id="verifyCodeBtn" class="primary-btn" onclick="revealPasswordResetFields()">Verify Code</button>
+            
+            <div id="resetPasswordFields" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="resetNewPass" placeholder="Min 8 chars">
+                            <button type="button" class="toggle-password" onclick="togglePass('resetNewPass', this)">Show</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="resetConfirmNewPass" placeholder="Confirm">
+                            <button type="button" class="toggle-password" onclick="togglePass('resetConfirmNewPass', this)">Show</button>
+                        </div>
+                    </div>
+                </div>
+                <button id="resetBtn" class="primary-btn" onclick="completePasswordReset()">Confirm Password Reset</button>
+            </div>
+
+            <div id="resetMessage" class="message-box"></div>
+            <a class="toggle-link" onclick="toggleViews('loginForm')">← Cancel Recovery</a>
+        </div>
+
+        <div id="registerForm">
+            <div class="subtitle">Onboarding Access Request</div>
+            
+            <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="John Doe"></div>
+            <div class="form-group"><label>Corporate Email</label><input type="email" id="regEmail" placeholder="john.doe@kalingasync.com"></div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Mobile Number</label>
+                    <div class="phone-input-group">
+                        <select id="regCountryCode"></select>
+                        <input type="tel" id="regPhone" placeholder="9876543210" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Requested Department</label>
+                    <select id="regDept"></select>
+                </div>
+            </div>
+            
+            <div class="form-group"><label>Permanent Address</label><input type="text" id="regAddress" placeholder="123 Tech Park, Bhubaneswar"></div>
+            <div class="form-group"><label>Requested Role</label><input type="text" id="regRole" placeholder="e.g. Junior Dev"></div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Create Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="regPassword" placeholder="Min 8 chars">
+                        <button type="button" class="toggle-password" onclick="togglePass('regPassword', this)">Show</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="regConfirmPassword" placeholder="Confirm">
+                        <button type="button" class="toggle-password" onclick="togglePass('regConfirmPassword', this)">Show</button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="regBtn" class="primary-btn" onclick="registerUser()">Submit Access Request</button>
+            <div id="regMessage" class="message-box"></div>
+            <a class="toggle-link" onclick="toggleViews('loginForm')">← Back to Login</a>
+        </div>
+
+        <div class="status-badge">● ALL SYSTEMS OPERATIONAL</div>
+    </div>
+
+    <script>
+        let userPool = null;
+        let currentCognitoUser = null;
+        let currentUserAttributes = null;
+        let globalRecoveryEmail = '';
+
+        // 🛡️ SECURITY FIX 3: Pre-flight XSS Sanitization Engine
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/[&<>'"]/g, match => {
+                const escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+                return escapeMap[match];
+            });
+        }
+
+        // Ensure complete loading before configuring AWS credentials
+        window.onload = () => { 
+            // 🛡️ SECURITY FIX 1: Proactively purge lingering sessions (Session Fixation Defense)
+            sessionStorage.removeItem('kalinga_session');
+            localStorage.clear();
+
+            try {
+                if (typeof KalingaConfig === 'undefined') {
+                    throw new Error("kalinga-config.js is missing or failed to load.");
+                }
+                
+                const poolData = {
+                    UserPoolId: KalingaConfig.USER_POOL_ID || '', 
+                    ClientId: KalingaConfig.CLIENT_ID || ''       
+                };
+
+                if (!poolData.UserPoolId || !poolData.ClientId) {
+                    throw new Error("USER_POOL_ID or CLIENT_ID is empty in config.");
+                }
+
+                if (typeof AmazonCognitoIdentity !== 'undefined') {
+                    userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+                }
+
+                KalingaConfig.populateDropdowns(['regDept'], 'departments');
+                KalingaConfig.populateDropdowns(['regCountryCode'], 'countries');
+                
+            } catch (err) {
+                console.error("Boot sequence failed:", err);
+                const msgBox = document.getElementById('loginMessage');
+                showMsg(msgBox, "System offline: " + err.message, "error");
+            }
+        };
+
+        // --- UI HELPER FUNCTIONS ---
+        function toggleViews(id) {
+            ['loginForm', 'registerForm', 'newPasswordForm', 'forgotPasswordForm', 'confirmResetForm'].forEach(v => {
+                document.getElementById(v).style.display = 'none';
+            });
+            document.getElementById(id).style.display = 'block';
+            document.querySelectorAll('.message-box').forEach(el => el.style.display = 'none');
+        }
+
+        function togglePass(id, btn) {
+            const el = document.getElementById(id);
+            if (el.type === "password") {
+                el.type = "text";
+                btn.innerText = "Hide";
+            } else {
+                el.type = "password";
+                btn.innerText = "Show";
+            }
+        }
+
+        function showMsg(el, txt, type) { 
+            el.innerText = txt; 
+            el.className = `message-box ${type}`; 
+            el.style.display = "block"; 
+        }
+
+        // 🚀 DYNAMIC AWS RBAC [Role-Based Access Control] ROUTING ENGINE
+        function handleRouting(authResult, email, btn, msgBox) {
+            try {
+                // Decode the JWT ID Token directly from AWS Cognito
+                const payload = authResult.getIdToken().decodePayload();
+                const userGroups = payload['cognito:groups'] || [];
+                const isAdmin = userGroups.includes('Admins');
+                
+                // 🚀 NEW: Extract the raw cryptographic token to act as our API passport
+                const idTokenRaw = authResult.getIdToken().getJwtToken();
+                
+                // 🚀 Send EVERYONE to get their profile data hydrated first, passing the clearance flag!
+                fetchProfileAndRedirect(email, btn, msgBox, isAdmin, idTokenRaw);
+            } catch (err) {
+                btn.innerText = "Secure Login";
+                btn.disabled = false;
+                showMsg(msgBox, "Routing failed: Unable to verify access level.", "error");
+            }
+        }
+
+        // --- AUTHENTICATION LOGIC ---
+        function loginUser() {
+            const btn = document.getElementById('loginBtn');
+            const msg = document.getElementById('loginMessage');
+
+            try {
+                const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+                const password = document.getElementById('loginPassword').value;
+
+                if(!email || !password) return showMsg(msg, "Please enter credentials.", "error");
+                if(!userPool) throw new Error("AWS Cognito is offline. Verify configuration.");
+
+                btn.innerText = "Authenticating...";
+                btn.disabled = true;
+
+                const cognitoUser = new AmazonCognitoIdentity.CognitoUser({ Username: email, Pool: userPool });
+                const authDetails = new AmazonCognitoIdentity.AuthenticationDetails({ Username: email, Password: password });
+
+                cognitoUser.authenticateUser(authDetails, {
+                    // 🚀 Pass the authResult payload into the routing engine to verify group tags!
+                    onSuccess: (result) => handleRouting(result, email, btn, msg), 
+                    
+                    onFailure: (err) => {
+                        btn.innerText = "Secure Login";
+                        btn.disabled = false;
+                        showMsg(msg, err.message.includes("not confirmed") ? "Account Pending Admin Approval." : err.message, "error");
+                    },
+                    newPasswordRequired: (userAttributes, requiredAttributes) => {
+                        currentCognitoUser = cognitoUser;
+                        
+                        // 🚀 CRITICAL FIX: Strip all locked attributes so AWS doesn't throw a "Cannot modify" error
+                        delete userAttributes.email_verified;
+                        delete userAttributes.phone_number_verified;
+                        delete userAttributes.email; 
+                        delete userAttributes.phone_number; // <-- Prevents the phone number crash!
+
+                        currentUserAttributes = userAttributes; 
+                        
+                        btn.innerText = "Secure Login";
+                        btn.disabled = false;
+                        toggleViews('newPasswordForm');
+                    }
+                });
+            } catch (err) {
+                btn.innerText = "Secure Login";
+                btn.disabled = false;
+                showMsg(msg, "Execution Error: " + err.message, "error");
+            }
+        }
+
+        function submitNewPassword() {
+            const newPass = document.getElementById('newPassInput').value;
+            const confirmPass = document.getElementById('newPassConfirmInput').value;
+            const msgBox = document.getElementById('newPassMessage');
+            const btn = document.getElementById('newPassBtn');
+
+            if(!newPass || !confirmPass) return showMsg(msgBox, "Please complete all fields.", "error");
+            if(newPass !== confirmPass) return showMsg(msgBox, "Passwords do not match.", "error");
+
+            btn.innerText = "Updating Vault...";
+            btn.disabled = true;
+
+            try {
+                currentCognitoUser.completeNewPasswordChallenge(newPass, currentUserAttributes, {
+                    onSuccess: (result) => {
+                        const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+                        handleRouting(result, email, btn, msgBox); // 🚀 Route via JWT payload
+                    },
+                    onFailure: (err) => {
+                        btn.innerText = "Set Permanent Password";
+                        btn.disabled = false;
+                        showMsg(msgBox, err.message, "error");
+                    }
+                });
+            } catch (err) {
+                btn.innerText = "Set Permanent Password";
+                btn.disabled = false;
+                showMsg(msgBox, "Execution Error: " + err.message, "error");
+            }
+        }
+
+        function fetchProfileAndRedirect(email, btn, msg, isAdmin = false, idTokenRaw = null) {
+            const url = typeof KalingaConfig !== 'undefined' ? KalingaConfig.EMPLOYEE_API : '';
+            
+            // 🛡️ SECURITY FIX: Attach the JWT to the initial profile hydration request!
+            const requestHeaders = { 'Content-Type': 'application/json' };
+            if (idTokenRaw) requestHeaders['Authorization'] = idTokenRaw;
+
+            fetch(url, {
+                method: 'POST', 
+                headers: requestHeaders, 
+                body: JSON.stringify({ action: 'get_profile', email: email })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) throw new Error(data.error);
+                
+                // 🚀 Inject the Admin clearance flag into the browser session memory!
+                data.isAdmin = isAdmin; 
+                // 🚀 NEW: Inject the raw JWT token into the session memory for API Gateway!
+                if (idTokenRaw) data.idToken = idTokenRaw; 
+                
+                sessionStorage.setItem('kalinga_session', JSON.stringify(data));
+                
+                // 🚀 Final Traffic Control: Admins to Command Center, Employees to Workspace
+                window.location.href = isAdmin ? 'admin.html' : 'dashboard.html';
+            })
+            .catch(err => {
+                btn.innerText = "Secure Login";
+                btn.disabled = false;
+                showMsg(msg, "Auth Success, but Profile Fetch failed: " + err.message, "error");
+            });
+        }
+
+        // --- REGISTRATION LOGIC ---
+        function registerUser() {
+            const msgBox = document.getElementById('regMessage');
+            const btn = document.getElementById('regBtn');
+
+            try {
+                // 🛡️ SECURITY FIX 3: Apply Pre-flight sanitization to prevent stored XSS
+                const name = escapeHTML(document.getElementById('regName').value.trim());
+                const email = document.getElementById('regEmail').value.trim().toLowerCase();
+                const address = escapeHTML(document.getElementById('regAddress').value.trim());
+                const dept = document.getElementById('regDept').value;
+                const role = escapeHTML(document.getElementById('regRole').value.trim());
+                const password = document.getElementById('regPassword').value;
+                const confirmPassword = document.getElementById('regConfirmPassword').value;
+                
+                const rawPhone = document.getElementById('regPhone').value.trim();
+                const countryCode = document.getElementById('regCountryCode').value;
+                const phone = rawPhone ? countryCode + rawPhone : '';
+
+                if(!name || !email || !rawPhone || !address || !role || !password || !confirmPassword) {
+                    return showMsg(msgBox, "Complete all fields.", "error");
+                }
+                if(password !== confirmPassword) return showMsg(msgBox, "Passwords do not match.", "error");
+                if(!userPool) throw new Error("AWS Cognito is offline.");
+
+                btn.innerText = "Submitting...";
+                btn.disabled = true;
+
+                const attrs = [
+                    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: 'name', Value: name }),
+                    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: 'phone_number', Value: phone }),
+                    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: 'address', Value: address }),
+                    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: 'custom:department', Value: dept }),
+                    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: 'custom:role', Value: role })
+                ];
+
+                userPool.signUp(email, password, attrs, null, (err, res) => {
+                    btn.innerText = "Submit Access Request";
+                    btn.disabled = false;
+                    
+                    if(err) return showMsg(msgBox, err.message, "error");
+                    showMsg(msgBox, "Request sent! Waiting for Admin approval.", "success");
+                    
+                    ['regName', 'regEmail', 'regPhone', 'regAddress', 'regRole', 'regPassword', 'regConfirmPassword'].forEach(id => document.getElementById(id).value = '');
+                });
+            } catch (err) {
+                btn.innerText = "Submit Access Request";
+                btn.disabled = false;
+                showMsg(msgBox, "Execution Error: " + err.message, "error");
+            }
+        }
+
+        // --- ACCOUNT RECOVERY LOGIC ---
+        function initiateForgotPassword() {
+            const email = document.getElementById('recoverEmail').value.trim().toLowerCase();
+            const msgBox = document.getElementById('recoverMessage');
+            const btn = document.getElementById('recoverBtn');
+
+            if(!email) return showMsg(msgBox, "Please enter your corporate email.", "error");
+            if(!userPool) return showMsg(msgBox, "AWS Cognito is offline.", "error");
+
+            btn.innerText = "Sending Request...";
+            btn.disabled = true;
+
+            const cognitoUser = new AmazonCognitoIdentity.CognitoUser({ Username: email, Pool: userPool });
+
+            cognitoUser.forgotPassword({
+                onSuccess: function(data) {},
+                onFailure: function(err) {
+                    btn.innerText = "Send Verification Code";
+                    btn.disabled = false;
+                    
+                    // 🛡️ SECURITY FIX 2: Mask Account Enumeration Reconnaissance
+                    if (err.code === 'UserNotFoundException' || err.message.includes('not exist')) {
+                        globalRecoveryEmail = email;
+                        toggleViews('confirmResetForm');
+                        
+                        document.getElementById('verifyCodeBtn').style.display = 'block';
+                        document.getElementById('resetPasswordFields').style.display = 'none';
+                        document.getElementById('resetCode').disabled = false;
+                        document.getElementById('resetSubtext').innerText = "Check your email for the 6-digit verification code.";
+
+                        const resetMsgBox = document.getElementById('resetMessage');
+                        // Tricking the attacker by showing success even if the email doesn't exist
+                        showMsg(resetMsgBox, "If this account exists, a recovery code has been sent.", "success");
+                    } else {
+                        showMsg(msgBox, err.message, "error");
+                    }
+                },
+                inputVerificationCode: function(data) {
+                    globalRecoveryEmail = email;
+                    toggleViews('confirmResetForm');
+                    
+                    document.getElementById('verifyCodeBtn').style.display = 'block';
+                    document.getElementById('resetPasswordFields').style.display = 'none';
+                    document.getElementById('resetCode').disabled = false;
+                    document.getElementById('resetSubtext').innerText = "Check your email for the 6-digit verification code.";
+
+                    const resetMsgBox = document.getElementById('resetMessage');
+                    showMsg(resetMsgBox, "If this account exists, a recovery code has been sent.", "success");
+                    btn.innerText = "Send Verification Code";
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        function revealPasswordResetFields() {
+            const code = document.getElementById('resetCode').value.trim();
+            const msgBox = document.getElementById('resetMessage');
+            
+            if(code.length !== 6 || isNaN(code)) {
+                return showMsg(msgBox, "Please enter a valid 6-digit numeric verification code.", "error");
+            }
+            
+            msgBox.style.display = 'none';
+            
+            document.getElementById('verifyCodeBtn').style.display = 'none';
+            document.getElementById('resetCode').disabled = true; 
+            document.getElementById('resetSubtext').innerText = "Code accepted. Now create your new secure password.";
+            document.getElementById('resetPasswordFields').style.display = 'block';
+        }
+
+        function completePasswordReset() {
+            const code = document.getElementById('resetCode').value.trim();
+            const newPass = document.getElementById('resetNewPass').value;
+            const confirmPass = document.getElementById('resetConfirmNewPass').value;
+            const msgBox = document.getElementById('resetMessage');
+            const btn = document.getElementById('resetBtn');
+
+            if(!code || !newPass || !confirmPass) return showMsg(msgBox, "Please complete all fields.", "error");
+            if(newPass !== confirmPass) return showMsg(msgBox, "Passwords do not match.", "error");
+
+            btn.innerText = "Verifying Code...";
+            btn.disabled = true;
+
+            const cognitoUser = new AmazonCognitoIdentity.CognitoUser({ Username: globalRecoveryEmail, Pool: userPool });
+            cognitoUser.confirmPassword(code, newPass, {
+                onSuccess: function() {
+                    toggleViews('loginForm');
+                    const loginMsgBox = document.getElementById('loginMessage');
+                    showMsg(loginMsgBox, "Password reset successful! You may now securely log in.", "success");
+                    btn.innerText = "Confirm Password Reset";
+                    btn.disabled = false;
+                    ['resetCode', 'resetNewPass', 'resetConfirmNewPass', 'recoverEmail'].forEach(id => document.getElementById(id).value = '');
+                },
+                onFailure: function(err) {
+                    btn.innerText = "Confirm Password Reset";
+                    btn.disabled = false;
+                    showMsg(msgBox, err.message, "error");
+                }
+            });
+        }
+    </script>
+</body>
+</html>
